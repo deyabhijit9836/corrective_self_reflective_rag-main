@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     reranking_enabled_by_default: bool = False
 
     # Reranking Backend Selection
-    reranker_backend: Literal["local", "voyage"] = "local"
+    reranker_backend: Literal["local", "voyage"] = "voyage"
     voyage_api_key: str | None = None
     voyage_model: str = "rerank-2.5"
 
