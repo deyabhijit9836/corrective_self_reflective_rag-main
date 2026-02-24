@@ -67,11 +67,17 @@ aws ecr get-login-password --region $AWS_REGION | \
     $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
 # Build for linux/amd64 (required on Apple Silicon M1/M2/M3)
-docker build --platform linux/amd64 -t $ECR_REPO:latest .
+#docker build --platform linux/amd64 -t $ECR_REPO:latest .
+docker buildx build \
+    --platform linux/amd64 \
+    --provenance=false \
+    --sbom=false \
+    -t $ECR_IMAGE:latest \
+    --push .
 
 # Tag and push
-docker tag $ECR_REPO:latest $ECR_IMAGE
-docker push $ECR_IMAGE
+#docker tag $ECR_REPO:latest $ECR_IMAGE
+#docker push $ECR_IMAGE
 ```
 
 > **Build time note:** The first build downloads system packages and the
@@ -82,20 +88,52 @@ docker push $ECR_IMAGE
 
 ## Phase 2 — Grant EC2 Instance ECR Pull Access
 
-Elastic Beanstalk's EC2 instances use the IAM role
+1. Elastic Beanstalk's EC2 instances use the IAM role
 `aws-elasticbeanstalk-ec2-role` to authenticate with AWS services.
-Attach the managed ECR read policy so the instance can pull your image:
+Create the role if not present
+```bash
+aws iam create-role \
+    --role-name aws-elasticbeanstalk-ec2-role \
+    --assume-role-policy-document '{
+      "Version": "2012-10-17",
+      "Statement": [{
+        "Effect": "Allow",
+        "Principal": {"Service": "ec2.amazonaws.com"},
+        "Action": "sts:AssumeRole"
+      }]
+    }'
+```
+2. Attach the required managed policies:
+```bash
+  aws iam attach-role-policy \
+    --role-name aws-elasticbeanstalk-ec2-role \
+    --policy-arn arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier
+
+  aws iam attach-role-policy \
+    --role-name aws-elasticbeanstalk-ec2-role \
+    --policy-arn arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier
+
+  aws iam attach-role-policy \
+    --role-name aws-elasticbeanstalk-ec2-role \
+    --policy-arn arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker
+```
+3. Create the instance profile and attach the role:
+```bash
+  aws iam create-instance-profile \
+    --instance-profile-name aws-elasticbeanstalk-ec2-role
+
+  aws iam add-role-to-instance-profile \
+    --instance-profile-name aws-elasticbeanstalk-ec2-role \
+    --role-name aws-elasticbeanstalk-ec2-role
+```
+
+4. Attach the managed ECR read policy so the instance can pull your image:
 
 ```bash
 aws iam attach-role-policy \
     --role-name aws-elasticbeanstalk-ec2-role \
     --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
 ```
-
-> If `aws-elasticbeanstalk-ec2-role` does not exist yet, Beanstalk creates it
-> automatically on the first `eb create`. You can attach the policy from the
-> **IAM Console → Roles** after the environment is created.
-
 ---
 
 ## Phase 3 — Update Dockerrun.aws.json
