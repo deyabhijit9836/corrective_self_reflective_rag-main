@@ -187,6 +187,7 @@ eb create crag-rag-prod \
     --instance-type t3.large \
     --single
 
+## Note: Sometimes with free account it might not allow a t3.large machine as its costly
 # OR with load balancer + auto-scaling (production-grade, ~$78/mo+)
 eb create crag-rag-prod \
     --instance-type t3.large

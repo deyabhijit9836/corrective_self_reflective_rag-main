@@ -32,9 +32,10 @@ RUN uv sync --no-dev
 
 # Pre-download the cross-encoder reranker model at build time so there is
 # no HuggingFace network call at container startup.
-RUN uv run python -c "\
-from sentence_transformers import CrossEncoder; \
-CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
+# RUN uv run python -c "\
+# from sentence_transformers import CrossEncoder; \
+# CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
+RUN uv run python -c "from sentence_transformers import CrossEncoder; CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
 
 
 # ============================================================
